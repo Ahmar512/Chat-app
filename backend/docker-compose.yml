@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: DockerFile
+
+    container_name: chat-backend
+    restart: always
+
+    ports:
+      - "5009:5009"
+
+    env_file:
+      - .env
+
+    
