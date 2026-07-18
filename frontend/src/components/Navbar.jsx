@@ -13,13 +13,12 @@ const Navbar = () => {
   }
   return (
     <div className='flex  mx-2 py-2 justify-between sm:mx-10'>
-      {/* logo */}
-      <div className='flex justify-center items-center'>
+      <Link to="/" className='flex justify-center items-center hover:opacity-80 transition-opacity'>
         <div className='flex justify-center size-8 items-center bg-primary/10 rounded-lg'>
            <MessageSquare className='size-5 text-primary' /> 
         </div>
         <h2 className='text-xl ml-1 font-bold'>CHATTY</h2>
-      </div>
+      </Link>
       <div className='flex gap-4'>
         <Link to="/settings" className='btn flex justify-center items-center bg-base-200 px-3 py-2 rounded-lg gap-1' >
           <Settings className='size-6' />
