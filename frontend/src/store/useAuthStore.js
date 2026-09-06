@@ -98,17 +98,19 @@ export const useAuthStore = create((set, get)=>({
         const {authUser} = get();
         if(!authUser || get().socket?.connected) return;
         
-        const socket = io(BASE_URL,{
-            query:{
+        const socket = io(BASE_URL, {
+            query: {
                 userId: authUser._id,
             },
+            transports: ["websocket", "polling"],
         });
         socket.connect();
 
         set({socket:socket});
 
-        // Initialize voice call listeners
+        // Initialize call listeners & fetch ICE servers
         useCallStore.getState().setupCallListeners();
+        useCallStore.getState().fetchIceServers();
 
         socket.on("getOnlineUsers", (userIds) =>{
             set({onlineUsers:userIds});
