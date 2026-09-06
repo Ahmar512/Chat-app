@@ -171,15 +171,21 @@ const CallOverlay = () => {
       <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between overflow-hidden animate-fade-in">
         {/* Remote Video (Main background view) */}
         <div className="relative w-full h-full flex items-center justify-center bg-zinc-950">
-          {callStatus === "connected" && remoteStream ? (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center p-6 text-center">
+          {/* Permanently mounted video element to ensure ref is always bound */}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`w-full h-full object-cover transition-opacity duration-300 ${
+              callStatus === "connected" && remoteStream
+                ? "opacity-100"
+                : "opacity-0 absolute pointer-events-none"
+            }`}
+          />
+
+          {/* Fallback / Connecting screen before video starts */}
+          {(!remoteStream || callStatus !== "connected") && (
+            <div className="flex flex-col items-center justify-center p-6 text-center z-10">
               <div className="relative mb-6">
                 <div className="size-28 sm:size-36 rounded-full overflow-hidden ring-4 ring-primary/80 animate-pulse">
                   <img
@@ -209,19 +215,20 @@ const CallOverlay = () => {
           {/* Floating Local Video Picture-in-Picture (PiP) */}
           <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
             <div className="w-24 sm:w-36 aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-zinc-900 relative">
-              {isVideoOff ? (
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover -scale-x-100 ${
+                  isVideoOff ? "hidden" : "block"
+                }`}
+              />
+              {isVideoOff && (
                 <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-zinc-900 text-zinc-400">
                   <VideoOff className="size-5 mb-1 text-zinc-500" />
                   <span className="text-[10px]">Camera off</span>
                 </div>
-              ) : (
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover -scale-x-100"
-                />
               )}
             </div>
           </div>

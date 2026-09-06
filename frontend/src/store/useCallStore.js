@@ -4,11 +4,36 @@ import { useAuthStore } from "./useAuthStore";
 import { ringtone } from "../lib/ringtone";
 import { axiosInstance } from "../lib/axios";
 
-const rtcConfig = {
-    iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-    ],
+export const productionIceServers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:standard.relay.metered.ca:80" },
+    {
+        urls: "turn:standard.relay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+    },
+    {
+        urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+    },
+    {
+        urls: "turn:standard.relay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+    },
+    {
+        urls: "turn:standard.relay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+    },
+];
+
+let rtcConfig = {
+    iceServers: productionIceServers,
+    iceCandidatePoolSize: 10,
 };
 
 export const isMobileDevice = () =>
@@ -34,6 +59,20 @@ export const useCallStore = create((set, get) => ({
     remoteStream: null,
     callHistory: [],
     isCallHistoryLoading: false,
+
+    fetchIceServers: async () => {
+        try {
+            const res = await axiosInstance.get("/calls/ice-servers");
+            if (Array.isArray(res.data) && res.data.length > 0) {
+                rtcConfig = {
+                    iceServers: res.data,
+                    iceCandidatePoolSize: 10,
+                };
+            }
+        } catch (err) {
+            console.log("Using default production STUN/TURN servers");
+        }
+    },
 
     getCallHistory: async () => {
         set({ isCallHistoryLoading: true });
@@ -320,16 +359,20 @@ export const useCallStore = create((set, get) => ({
 
         // Handle remote stream
         peerConnection.ontrack = (event) => {
-            if (event.streams && event.streams[0]) {
-                set({ remoteStream: event.streams[0] });
-            } else if (event.track) {
-                let current = get().remoteStream;
-                if (!current) {
-                    current = new MediaStream();
-                }
-                current.addTrack(event.track);
-                set({ remoteStream: new MediaStream(current.getTracks()) });
-            }
+            console.log("WebRTC ontrack received track:", event.track.kind);
+            const incomingStream =
+                event.streams && event.streams[0]
+                    ? event.streams[0]
+                    : new MediaStream([event.track]);
+
+            set({ remoteStream: new MediaStream(incomingStream.getTracks()) });
+
+            incomingStream.onaddtrack = () => {
+                set({ remoteStream: new MediaStream(incomingStream.getTracks()) });
+            };
+            incomingStream.onremovetrack = () => {
+                set({ remoteStream: new MediaStream(incomingStream.getTracks()) });
+            };
         };
 
         // Handle ICE candidates
@@ -345,7 +388,18 @@ export const useCallStore = create((set, get) => ({
             }
         };
 
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log("WebRTC ICE Connection State:", peerConnection.iceConnectionState);
+            if (peerConnection.iceConnectionState === "failed") {
+                console.warn("ICE Connection Failed! Retrying with ICE Restart...");
+                if (typeof peerConnection.restartIce === "function") {
+                    peerConnection.restartIce();
+                }
+            }
+        };
+
         peerConnection.onconnectionstatechange = () => {
+            console.log("WebRTC Connection State:", peerConnection.connectionState);
             if (
                 peerConnection.connectionState === "disconnected" ||
                 peerConnection.connectionState === "failed" ||
