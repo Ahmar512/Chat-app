@@ -94,37 +94,94 @@ export const useAuthStore = create((set, get)=>({
             set({isUpdatingProfile:false});
         }
     },
-    connectSocket: () =>{
-        const {authUser} = get();
-        if(!authUser || get().socket?.connected) return;
-        
-        const socket = io(BASE_URL, {
+    connectSocket: () => {
+        const { authUser, socket } = get();
+        if (!authUser) return;
+
+        // If socket already exists and is connected, request online users
+        if (socket?.connected) {
+            socket.emit("requestOnlineUsers");
+            return;
+        }
+
+        // If socket exists but disconnected, reconnect it
+        if (socket && !socket.connected) {
+            socket.connect();
+            return;
+        }
+
+        const newSocket = io(BASE_URL, {
             query: {
                 userId: authUser._id,
             },
             transports: ["websocket", "polling"],
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000,
         });
-        socket.connect();
 
-        set({socket:socket});
+        set({ socket: newSocket });
 
-        // Initialize call listeners & fetch ICE servers
+        newSocket.on("connect", () => {
+            console.log("Socket connected:", newSocket.id);
+            newSocket.emit("requestOnlineUsers");
+        });
+
+        newSocket.on("getOnlineUsers", (userIds) => {
+            set({ onlineUsers: userIds });
+        });
+
+        newSocket.on("disconnect", (reason) => {
+            console.log("Socket disconnected:", reason);
+            if (reason === "ioServerDisconnect") {
+                // Server initiated disconnect, reconnect manually
+                newSocket.connect();
+            }
+        });
+
+        newSocket.on("connect_error", (error) => {
+            console.log("Socket connection error:", error.message);
+        });
+
+        // Initialize calling listeners & ICE servers
         useCallStore.getState().setupCallListeners();
         useCallStore.getState().fetchIceServers();
-
-        socket.on("getOnlineUsers", (userIds) =>{
-            set({onlineUsers:userIds});
-        })
-
-
-
     },
-    disconnectSocket: ()=>{
-        // Reset any active call and clean listeners
+
+    disconnectSocket: () => {
         useCallStore.getState().endCall();
         useCallStore.getState().cleanupCallListeners();
 
-        if(get().socket?.connected) get().socket.disconnect();
+        const socket = get().socket;
+        if (socket) {
+            socket.disconnect();
+            set({ socket: null, onlineUsers: [] });
+        }
     },
+}));
 
-}))
+// Auto-reconnect when mobile screen turns on or user refocuses the app tab
+if (typeof window !== "undefined") {
+    const handleRecheck = () => {
+        const state = useAuthStore.getState();
+        if (state.authUser) {
+            if (state.socket && !state.socket.connected) {
+                console.log("App refocused/visible: Reconnecting socket...");
+                state.socket.connect();
+            } else if (state.socket?.connected) {
+                state.socket.emit("requestOnlineUsers");
+            } else if (!state.socket) {
+                state.connectSocket();
+            }
+        }
+    };
+
+    window.addEventListener("focus", handleRecheck);
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            handleRecheck();
+        }
+    });
+}
