@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {axiosInstance} from "../lib/axios.js"
 import toast from 'react-hot-toast';
 import {io} from 'socket.io-client';
+import { useCallStore } from './useCallStore.js';
 
 
 const BASE_URL = 
@@ -27,6 +28,7 @@ export const useAuthStore = create((set, get)=>({
             
         } catch (error) {
             console.log("Error in checkAuth: ", error);
+            localStorage.removeItem("token");
             set({authUser:null});
         }finally{
             set({isCheckingAuth:false});
@@ -36,12 +38,14 @@ export const useAuthStore = create((set, get)=>({
         try {
             set({isSigningUp:true})
             const res = await axiosInstance.post("/auth/signup",({fullName:data.fullName, email:data.email, password:data.password}));
+            if (res.data.token) localStorage.setItem("token", res.data.token);
             set({authUser:res.data});
             toast.success("Account created successfully");
             get().connectSocket();
         } catch (error) {
             console.log(error);
-            toast.error(error.response.data.message);
+            const msg = error?.response?.data?.message || error?.message || "Signup failed";
+            toast.error(msg);
         }finally{
             set({isSigningUp:false});
         }
@@ -50,12 +54,14 @@ export const useAuthStore = create((set, get)=>({
         try{
             set({isLoggingin:true});
             const res = await axiosInstance.post("/auth/login",({email:data.email, password:data.password}))
+            if (res.data.token) localStorage.setItem("token", res.data.token);
             set({authUser:res.data});
             toast.success("Logged in successfully");
             get().connectSocket();
         }catch(error){
             console.log(error);
-            toast.error(error.response.data.message);
+            const msg = error?.response?.data?.message || error?.message || "Login failed";
+            toast.error(msg);
         }finally{
             set({isLoggingin:false});
         }
@@ -63,12 +69,15 @@ export const useAuthStore = create((set, get)=>({
     logout: async () =>{
         try{
             const res = await axiosInstance.post("/auth/logout");
+            localStorage.removeItem("token");
             set({authUser:null});
             toast.success("Logged out successfully");
             get().disconnectSocket();
         }catch(error){
             console.log("error in logout: ", error);
-            toast.error(error.response.data.message);
+            localStorage.removeItem("token");
+            const msg = error?.response?.data?.message || error?.message || "Logout failed";
+            toast.error(msg);
         }
     },
     updateProfile: async (data) =>{
@@ -79,7 +88,8 @@ export const useAuthStore = create((set, get)=>({
             toast.success("Profile updated successfully");
         } catch (error) {
             console.log("Error is update profile: ", error);
-            toast.error(error.response.data.message);
+            const msg = error?.response?.data?.message || error?.message || "Update profile failed";
+            toast.error(msg);
         }finally{
             set({isUpdatingProfile:false});
         }
@@ -97,6 +107,9 @@ export const useAuthStore = create((set, get)=>({
 
         set({socket:socket});
 
+        // Initialize voice call listeners
+        useCallStore.getState().setupCallListeners();
+
         socket.on("getOnlineUsers", (userIds) =>{
             set({onlineUsers:userIds});
         })
@@ -105,6 +118,10 @@ export const useAuthStore = create((set, get)=>({
 
     },
     disconnectSocket: ()=>{
+        // Reset any active call and clean listeners
+        useCallStore.getState().endCall();
+        useCallStore.getState().cleanupCallListeners();
+
         if(get().socket?.connected) get().socket.disconnect();
     },
 

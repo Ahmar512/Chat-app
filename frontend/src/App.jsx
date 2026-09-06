@@ -10,6 +10,7 @@ import { useThemeStore } from "./store/useThemeStore.js";
 import { useEffect } from "react";
 import { Loader } from 'lucide-react'
 import {Toaster} from 'react-hot-toast';
+import CallOverlay from "./components/CallOverlay.jsx";
 
 
 
@@ -38,6 +39,7 @@ function App() {
 
     <div data-theme={theme}>
       <Navbar />
+      <CallOverlay />
 
       <Routes>
         <Route path="/" element={authUser ?<HomePage /> : <Navigate to="/login" />} />

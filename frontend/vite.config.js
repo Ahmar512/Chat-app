@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    server: {
+      host: true,
+    },
     define: {
       'import.meta.env.VITE_BACKEND_URL': JSON.stringify(backendUrl),
       'import.meta.env.BACKEND_URL': JSON.stringify(backendUrl),
