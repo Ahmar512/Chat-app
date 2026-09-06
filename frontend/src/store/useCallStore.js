@@ -22,10 +22,13 @@ let iceCandidatesQueue = [];
 
 export const useCallStore = create((set, get) => ({
     callStatus: "idle", // "idle" | "outgoing" | "incoming" | "connected"
+    callType: "audio", // "audio" | "video"
     callWith: null,
     currentCallId: null,
     isMuted: false,
-    isSpeakerOn: !isMobileDevice(), // Always false (earpiece) on mobile, true on desktop
+    isVideoOff: false,
+    cameraFacingMode: "user", // "user" | "environment"
+    isSpeakerOn: !isMobileDevice(), // Always false (earpiece) on mobile for audio calls, true for video/desktop
     callDuration: 0,
     localStream: null,
     remoteStream: null,
@@ -47,7 +50,7 @@ export const useCallStore = create((set, get) => ({
     // ----------------------------------------------------
     // Call Actions
     // ----------------------------------------------------
-    initiateCall: async (targetUser) => {
+    initiateCall: async (targetUser, type = "audio") => {
         const { authUser, socket } = useAuthStore.getState();
         if (!socket || !socket.connected) {
             toast.error("Not connected to server");
@@ -55,22 +58,35 @@ export const useCallStore = create((set, get) => ({
         }
 
         if (!navigator?.mediaDevices?.getUserMedia) {
-            toast.error("Microphone requires HTTPS on mobile. Please use the HTTPS Dev Tunnel link.");
+            toast.error("Media devices require HTTPS on mobile. Please use the HTTPS Dev Tunnel link.");
             return;
         }
 
+        const isVideo = type === "video";
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
+            const constraints = {
                 audio: true,
-                video: false,
-            });
+                video: isVideo
+                    ? {
+                          facingMode: "user",
+                          width: { ideal: 1280 },
+                          height: { ideal: 720 },
+                      }
+                    : false,
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
             set({
                 callStatus: "outgoing",
+                callType: type,
                 callWith: targetUser,
                 localStream: stream,
                 isMuted: false,
-                isSpeakerOn: !isMobileDevice(),
+                isVideoOff: false,
+                cameraFacingMode: "user",
+                isSpeakerOn: isVideo ? true : !isMobileDevice(),
                 callDuration: 0,
             });
 
@@ -83,36 +99,53 @@ export const useCallStore = create((set, get) => ({
                     fullName: authUser.fullName,
                     profilePic: authUser.profilePic,
                 },
+                callType: type,
             });
         } catch (error) {
-            console.error("Microphone access error:", error);
-            toast.error("Could not access microphone. Please check permissions.");
+            console.error("Media access error:", error);
+            toast.error(
+                isVideo
+                    ? "Could not access camera/microphone. Please check permissions."
+                    : "Could not access microphone. Please check permissions."
+            );
         }
     },
 
     acceptCall: async () => {
-        const { currentCallId, callWith } = get();
+        const { currentCallId, callWith, callType } = get();
         const { socket } = useAuthStore.getState();
 
         ringtone.stop();
 
         if (!navigator?.mediaDevices?.getUserMedia) {
-            toast.error("Microphone requires HTTPS on mobile. Please use the HTTPS Dev Tunnel link.");
+            toast.error("Media devices require HTTPS on mobile. Please use the HTTPS Dev Tunnel link.");
             get().rejectCall();
             return;
         }
 
+        const isVideo = callType === "video";
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
+            const constraints = {
                 audio: true,
-                video: false,
-            });
+                video: isVideo
+                    ? {
+                          facingMode: "user",
+                          width: { ideal: 1280 },
+                          height: { ideal: 720 },
+                      }
+                    : false,
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
             set({
                 callStatus: "connected",
                 localStream: stream,
                 isMuted: false,
-                isSpeakerOn: !isMobileDevice(),
+                isVideoOff: false,
+                cameraFacingMode: "user",
+                isSpeakerOn: isVideo ? true : !isMobileDevice(),
                 callDuration: 0,
             });
 
@@ -127,7 +160,7 @@ export const useCallStore = create((set, get) => ({
             }
         } catch (error) {
             console.error("Error accepting call:", error);
-            toast.error("Could not access microphone");
+            toast.error(isVideo ? "Could not access camera/microphone" : "Could not access microphone");
             get().rejectCall();
         }
     },
@@ -170,6 +203,58 @@ export const useCallStore = create((set, get) => ({
         set({ isMuted: newMutedState });
     },
 
+    toggleVideo: () => {
+        const { localStream, isVideoOff } = get();
+        if (!localStream) return;
+
+        const videoTracks = localStream.getVideoTracks();
+        if (videoTracks.length === 0) return;
+
+        const newVideoOff = !isVideoOff;
+        videoTracks.forEach((track) => {
+            track.enabled = !newVideoOff;
+        });
+
+        set({ isVideoOff: newVideoOff });
+    },
+
+    switchCamera: async () => {
+        const { localStream, cameraFacingMode } = get();
+        if (!localStream || !peerConnection) return;
+
+        const currentTrack = localStream.getVideoTracks()[0];
+        if (!currentTrack) return;
+
+        const newFacingMode = cameraFacingMode === "user" ? "environment" : "user";
+
+        try {
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: newFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false,
+            });
+
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            if (!newVideoTrack) return;
+
+            const sender = peerConnection.getSenders().find((s) => s.track && s.track.kind === "video");
+            if (sender) {
+                await sender.replaceTrack(newVideoTrack);
+            }
+
+            currentTrack.stop();
+            localStream.removeTrack(currentTrack);
+            localStream.addTrack(newVideoTrack);
+
+            set({
+                localStream: new MediaStream([...localStream.getTracks()]),
+                cameraFacingMode: newFacingMode,
+            });
+        } catch (err) {
+            console.error("Error switching camera:", err);
+            toast.error("Could not switch camera");
+        }
+    },
+
     toggleSpeaker: () => {
         set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
     },
@@ -204,9 +289,12 @@ export const useCallStore = create((set, get) => ({
 
         set({
             callStatus: "idle",
+            callType: "audio",
             callWith: null,
             currentCallId: null,
             isMuted: false,
+            isVideoOff: false,
+            cameraFacingMode: "user",
             isSpeakerOn: !isMobileDevice(),
             callDuration: 0,
             localStream: null,
@@ -234,6 +322,13 @@ export const useCallStore = create((set, get) => ({
         peerConnection.ontrack = (event) => {
             if (event.streams && event.streams[0]) {
                 set({ remoteStream: event.streams[0] });
+            } else if (event.track) {
+                let current = get().remoteStream;
+                if (!current) {
+                    current = new MediaStream();
+                }
+                current.addTrack(event.track);
+                set({ remoteStream: new MediaStream(current.getTracks()) });
             }
         };
 
@@ -274,7 +369,7 @@ export const useCallStore = create((set, get) => ({
         get().cleanupCallListeners();
 
         // 1. Incoming Call
-        socket.on("call:incoming", ({ callId, caller }) => {
+        socket.on("call:incoming", ({ callId, caller, callType = "audio" }) => {
             if (get().callStatus !== "idle") {
                 socket.emit("call:busy", { receiverId: caller._id });
                 return;
@@ -282,6 +377,7 @@ export const useCallStore = create((set, get) => ({
 
             set({
                 callStatus: "incoming",
+                callType: callType || "audio",
                 callWith: caller,
                 currentCallId: callId,
             });
@@ -290,13 +386,14 @@ export const useCallStore = create((set, get) => ({
         });
 
         // 2. Caller receives call accepted -> create offer
-        socket.on("call:accepted", async ({ callId }) => {
+        socket.on("call:accepted", async ({ callId, callType }) => {
             ringtone.stop();
 
             const { callWith, localStream } = get();
             set({
                 callStatus: "connected",
                 currentCallId: callId,
+                ...(callType ? { callType } : {}),
             });
 
             get().startTimer();
@@ -305,6 +402,7 @@ export const useCallStore = create((set, get) => ({
                 const pc = get().initPeerConnection(callWith._id, localStream);
                 const offer = await pc.createOffer({
                     offerToReceiveAudio: true,
+                    offerToReceiveVideo: true,
                 });
                 await pc.setLocalDescription(offer);
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useCallStore } from "../store/useCallStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { Search, X, MessageSquare, Phone, UserPlus } from "lucide-react";
+import { Search, X, MessageSquare, Phone, Video, UserPlus } from "lucide-react";
 
 const AddUserTab = ({ onUserSelected }) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -128,8 +128,8 @@ const AddUserTab = ({ onUserSelected }) => {
                     </div>
                   </div>
 
-                  {/* Right Actions: Message & Call */}
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  {/* Right Actions: Message, Audio Call & Video Call */}
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -139,15 +139,26 @@ const AddUserTab = ({ onUserSelected }) => {
                       className="btn btn-circle btn-sm btn-ghost text-primary hover:bg-primary/10"
                       title="Chat"
                     >
-                      <MessageSquare className="size-4" />
+                      <MessageSquare className="size-3.5 sm:size-4" />
                     </button>
                     <button
                       type="button"
                       onClick={(e) => handleCallBack(e, user)}
                       className="btn btn-circle btn-sm btn-ghost text-emerald-500 hover:bg-emerald-500/10"
-                      title="Audio Call"
+                      title="Voice Call"
                     >
-                      <Phone className="size-4" />
+                      <Phone className="size-3.5 sm:size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        initiateCall(user, "video");
+                      }}
+                      className="btn btn-circle btn-sm btn-ghost text-secondary hover:bg-secondary/10"
+                      title="Video Call"
+                    >
+                      <Video className="size-3.5 sm:size-4" />
                     </button>
                   </div>
                 </div>

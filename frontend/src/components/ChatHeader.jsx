@@ -35,8 +35,9 @@ const ChatHeader = () => {
                 </div>
             </div>
             {/* Call and Close buttons */}
-            <div className='flex items-center gap-1 sm:gap-2'>
-                <CallButton />
+            <div className='flex items-center gap-1 sm:gap-1.5'>
+                <CallButton type="audio" />
+                <CallButton type="video" />
                 <button 
                     onClick={() => setSelectedUser(null)}
                     className="btn btn-sm btn-circle btn-ghost hidden md:flex text-base-content/70 hover:bg-base-content/10"

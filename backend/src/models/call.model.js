@@ -17,6 +17,11 @@ const callSchema = new mongoose.Schema(
             enum: ["missed", "rejected", "completed", "busy"],
             default: "missed",
         },
+        callType: {
+            type: String,
+            enum: ["audio", "video"],
+            default: "audio",
+        },
         duration: {
             type: Number, // in seconds
             default: 0,

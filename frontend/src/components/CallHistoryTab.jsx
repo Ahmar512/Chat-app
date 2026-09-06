@@ -10,6 +10,7 @@ import {
   PhoneOff,
   Clock,
   RotateCw,
+  Video,
 } from "lucide-react";
 
 const formatDuration = (seconds) => {
@@ -130,6 +131,8 @@ const CallHistoryTab = () => {
           const isRejected = call.status === "rejected";
           const isBusy = call.status === "busy";
 
+          const isVideoCall = call.callType === "video";
+
           // Icon & styling based on direction & status
           let StatusIcon = PhoneOutgoing;
           let iconColor = "text-zinc-400";
@@ -139,7 +142,7 @@ const CallHistoryTab = () => {
             StatusIcon = PhoneOutgoing;
             if (isCompleted) {
               iconColor = "text-emerald-500";
-              statusLabel = `Outgoing • ${formatDuration(call.duration)}`;
+              statusLabel = `Outgoing ${isVideoCall ? "video" : ""} • ${formatDuration(call.duration)}`;
             } else if (isBusy) {
               iconColor = "text-amber-500";
               statusLabel = "User busy";
@@ -155,11 +158,11 @@ const CallHistoryTab = () => {
             if (isCompleted) {
               StatusIcon = PhoneIncoming;
               iconColor = "text-emerald-500";
-              statusLabel = `Incoming • ${formatDuration(call.duration)}`;
+              statusLabel = `Incoming ${isVideoCall ? "video" : ""} • ${formatDuration(call.duration)}`;
             } else if (isMissed) {
               StatusIcon = PhoneMissed;
               iconColor = "text-red-500";
-              statusLabel = "Missed call";
+              statusLabel = `Missed ${isVideoCall ? "video call" : "call"}`;
             } else if (isRejected) {
               StatusIcon = PhoneOff;
               iconColor = "text-red-400";
@@ -188,6 +191,11 @@ const CallHistoryTab = () => {
                   {isOnline && (
                     <span className="absolute bottom-0 right-0 size-3 bg-emerald-500 rounded-full ring-2 ring-base-100" />
                   )}
+                  {isVideoCall && (
+                    <span className="absolute -top-1 -right-1 size-5 bg-secondary text-secondary-content rounded-full flex items-center justify-center shadow-sm">
+                      <Video className="size-3" />
+                    </span>
+                  )}
                 </div>
 
                 <div className="text-left min-w-0 flex-1">
@@ -210,15 +218,31 @@ const CallHistoryTab = () => {
                 </div>
               </div>
 
-              {/* Right: Quick Call Button */}
-              <button
-                type="button"
-                onClick={(e) => handleCallBack(e, otherUser)}
-                className="btn btn-circle btn-sm btn-ghost text-emerald-500 hover:bg-emerald-500/15 transition-all flex-shrink-0"
-                title={`Call ${otherUser.fullName || "User"}`}
-              >
-                <Phone className="size-4" />
-              </button>
+              {/* Right: Quick Call Buttons */}
+              <div className="flex items-center gap-0.5 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    initiateCall(otherUser, "audio");
+                  }}
+                  className="btn btn-circle btn-sm btn-ghost text-emerald-500 hover:bg-emerald-500/15 transition-all"
+                  title={`Voice call ${otherUser.fullName || "User"}`}
+                >
+                  <Phone className="size-3.5 sm:size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    initiateCall(otherUser, "video");
+                  }}
+                  className="btn btn-circle btn-sm btn-ghost text-secondary hover:bg-secondary/15 transition-all"
+                  title={`Video call ${otherUser.fullName || "User"}`}
+                >
+                  <Video className="size-3.5 sm:size-4" />
+                </button>
+              </div>
             </div>
           );
         })}

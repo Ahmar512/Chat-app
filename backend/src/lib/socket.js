@@ -91,7 +91,7 @@ io.on("connection", (socket) => {
     // --- Voice Call Signaling ---
 
     // 1. Initiate Call
-    socket.on("call:initiate", ({ receiverId, caller }) => {
+    socket.on("call:initiate", ({ receiverId, caller, callType = "audio" }) => {
         const receiverSocketId = userSocketMap[receiverId];
 
         if (!receiverSocketId) {
@@ -100,6 +100,7 @@ io.on("connection", (socket) => {
                 callerId: userId,
                 receiverId,
                 status: "missed",
+                callType,
                 duration: 0,
             });
             return;
@@ -111,6 +112,7 @@ io.on("connection", (socket) => {
                 callerId: userId,
                 receiverId,
                 status: "busy",
+                callType,
                 duration: 0,
             });
             return;
@@ -121,6 +123,7 @@ io.on("connection", (socket) => {
             callId,
             callerId: userId,
             receiverId,
+            callType,
             startTime: Date.now(),
             acceptedAt: null,
             status: "ringing",
@@ -133,6 +136,7 @@ io.on("connection", (socket) => {
         io.to(receiverSocketId).emit("call:incoming", {
             callId,
             caller,
+            callType,
         });
     });
 
@@ -146,7 +150,7 @@ io.on("connection", (socket) => {
 
         const callerSocketId = userSocketMap[call.callerId];
         if (callerSocketId) {
-            io.to(callerSocketId).emit("call:accepted", { callId });
+            io.to(callerSocketId).emit("call:accepted", { callId, callType: call.callType });
         }
     });
 
@@ -164,6 +168,7 @@ io.on("connection", (socket) => {
             callerId: call.callerId,
             receiverId: call.receiverId,
             status: "rejected",
+            callType: call.callType || "audio",
             duration: 0,
         });
     });
@@ -187,6 +192,7 @@ io.on("connection", (socket) => {
             callerId: call.callerId,
             receiverId: call.receiverId,
             status,
+            callType: call.callType || "audio",
             duration,
         });
     });
@@ -238,6 +244,7 @@ io.on("connection", (socket) => {
                     callerId: call.callerId,
                     receiverId: call.receiverId,
                     status,
+                    callType: call.callType || "audio",
                     duration,
                 });
             }
