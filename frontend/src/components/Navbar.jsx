@@ -1,12 +1,12 @@
 import React from 'react'
-import {LogOut, MessageSquare, PersonStanding, Settings, User} from 'lucide-react'
+import { LogOut, MessageSquare, PersonStanding, Settings, User } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore.js'
 import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
-  const {logout, authUser}  = useAuthStore();
+  const { logout, authUser } = useAuthStore();
   const navigate = useNavigate();
-  const handleLogout = () =>{
+  const handleLogout = () => {
     logout();
     navigate("/login");
 
@@ -14,29 +14,29 @@ const Navbar = () => {
   return (
     <div className='flex  mx-2 py-2 justify-between sm:mx-10'>
       {/* logo */}
-      <div className='flex justify-center items-center'>
+      <Link to="/" className='flex justify-center items-center'>
         <div className='flex justify-center size-8 items-center bg-primary/10 rounded-lg'>
-           <MessageSquare className='size-5 text-primary' /> 
+          <MessageSquare className='size-5 text-primary' />
         </div>
         <h2 className='text-xl ml-1 font-bold'>CHATTY</h2>
-      </div>
+      </Link>
       <div className='flex gap-4'>
         <Link to="/settings" className='btn flex justify-center items-center bg-base-200 px-3 py-2 rounded-lg gap-1' >
           <Settings className='size-6' />
-          <p className='font-bold text-sm max-sm:hidden'>Settings</p>      
+          <p className='font-bold text-sm max-sm:hidden'>Settings</p>
         </Link>
-        {authUser?(<Link to="/profile" className='btn flex justify-center items-center bg-base-200 px-3 py-2 rounded-lg gap-1' >
+        {authUser ? (<Link to="/profile" className='btn flex justify-center items-center bg-base-200 px-3 py-2 rounded-lg gap-1' >
           <User className='size-6' />
-          <p className='font-bold text-sm max-sm:hidden'>Profile</p>      
-        </Link>):null}
+          <p className='font-bold text-sm max-sm:hidden'>Profile</p>
+        </Link>) : null}
 
-        {authUser?(
+        {authUser ? (
           <button className="btn" onClick={handleLogout}>
             <LogOut className='size-6' />
             <p className='font-bold max-sm:hidden'>Logout</p>
-        </button>):null}
+          </button>) : null}
       </div>
-    </div>
+    </div >
   )
 }
 

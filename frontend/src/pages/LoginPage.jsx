@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, MessageSquare } from 'lucide-react';
 import AuthImagePattern from '../components/AuthImagePattern';
+import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false)
@@ -15,10 +16,22 @@ const LoginPage = () => {
   const {login, isLoggingin, isError} = useAuthStore();
 
   const validateForm = () =>{
-    if(!formData.email.trim()) return toast.error("Email is required");
-    if(!/\S+@\S+\.\S+/.test(formData.email)) return toast.error("Invalid email format");
-    if(!formData.password) return toast.error("Password is required");
-    if(formData.password.length < 6) return toast.error("Password must be at least 6 characters");
+    if(!formData.email.trim()){
+      toast.error("Email is required");
+      return false;
+    }
+    if(!/\S+@\S+\.\S+/.test(formData.email)){
+      toast.error("Invalid email format");
+      return false;
+    }
+    if(!formData.password){
+      toast.error("Password is required");
+      return false;
+    }
+    if(formData.password.length < 6){
+      toast.error("Password must be at least 6 characters");
+      return false;
+    }
 
     return true;
   }
